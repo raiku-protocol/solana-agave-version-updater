@@ -85,9 +85,11 @@ class VersionChecker:
 
     def get_required_version(self) -> Optional[str]:
         """Get the required Solana version from the network's baseline requirements."""
-
         try:
-            headers = {"user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36", "cache-control": "no-cache"}
+            headers = {
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
+                "cache-control": "no-cache"
+            }
             response = requests.get(url, headers=headers)
             response.raise_for_status()
 
@@ -102,48 +104,68 @@ class VersionChecker:
             print(f"Error fetching version: {e}", file=sys.stderr)
             return None
 
-        except Exception as e:
-            print(f"Error fetching version: {e}", file=sys.stderr)
-            return None
-
     def get_current_version(self) -> str:
         """Get the current Solana version from the YAML file."""
         if not self.yaml_path.exists():
             raise FileNotFoundError(f"Could not find YAML file at {self.yaml_path}")
 
-        with open(self.yaml_path) as f:
-            data = yaml.safe_load(f)
-            return data['spec']['values']['image']['tag']
+        try:
+            with open(self.yaml_path) as f:
+                # Load all documents and merge them
+                documents = list(yaml.safe_load_all(f))
+                merged_data = {}
+                for doc in documents:
+                    if doc:  # Skip empty documents
+                        merged_data.update(doc)
+
+                if not merged_data:
+                    raise ValueError("No valid YAML content found")
+
+                return merged_data['spec']['values']['image']['tag']
+        except yaml.YAMLError as e:
+            raise ValueError(f"Error parsing YAML file: {e}")
+        except KeyError as e:
+            raise ValueError(f"Required key not found in YAML: {e}")
 
     def update_yaml_version(self, new_version: str) -> None:
-        """Update the Solana version in the YAML file while preserving formatting."""
-        with open(self.yaml_path, 'r') as f:
-            content = f.read()
+        """Update the Solana version in the YAML file while preserving formatting and multiple documents."""
+        try:
+            with open(self.yaml_path, 'r') as f:
+                content = f.read()
 
-        # Get the current version
-        current_version = self.get_current_version()
+            # Get the current version
+            current_version = self.get_current_version()
 
-        # Create all possible patterns for the version tag
-        patterns = [
-            f'tag: {current_version}',      # No quotes
-            f'tag: "{current_version}"',    # Double quotes
-            f"tag: '{current_version}'"     # Single quotes
-        ]
+            # Create all possible patterns for the version tag
+            patterns = [
+                f'tag: {current_version}',      # No quotes
+                f'tag: "{current_version}"',    # Double quotes
+                f"tag: '{current_version}'"     # Single quotes
+            ]
 
-        updated_content = content
-        for pattern in patterns:
-            if pattern in content:
-                # Determine which quote style was used
-                if '"' in pattern:
-                    updated_content = content.replace(pattern, f'tag: "v{new_version}"')
-                elif "'" in pattern:
-                    updated_content = content.replace(pattern, f"tag: 'v{new_version}'")
-                else:
-                    updated_content = content.replace(pattern, f'tag: v{new_version}')
-                break
+            updated_content = content
+            for pattern in patterns:
+                if pattern in content:
+                    # Determine which quote style was used
+                    if '"' in pattern:
+                        updated_content = content.replace(pattern, f'tag: "v{new_version}"')
+                    elif "'" in pattern:
+                        updated_content = content.replace(pattern, f"tag: 'v{new_version}'")
+                    else:
+                        updated_content = content.replace(pattern, f'tag: v{new_version}')
+                    break
 
-        with open(self.yaml_path, 'w') as f:
-            f.write(updated_content)
+            # Verify the updated content is valid YAML before writing
+            try:
+                # Verify all documents in the YAML are still valid
+                list(yaml.safe_load_all(updated_content))
+            except yaml.YAMLError as e:
+                raise ValueError(f"Generated invalid YAML: {e}")
+
+            with open(self.yaml_path, 'w') as f:
+                f.write(updated_content)
+        except Exception as e:
+            raise ValueError(f"Error updating YAML file: {e}")
 
     def check_and_update(self) -> Tuple[str, str, bool]:
         """Check if an update is needed and perform it if necessary."""
