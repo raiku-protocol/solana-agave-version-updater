@@ -13,7 +13,7 @@ A GitHub Action that automatically checks required Solana versions from network 
 
 ## 🚀 Quick Start
 ```yaml
-- uses: solforge-labs/solana-agave-version-updater@v0.2
+- uses: solforge-labs/solana-agave-version-updater@v0.3
   with:
     # Path to Agave HelmRelease deployment YAML
     yaml-path: 'gitops/clusters/testnet/solana/agave-deployment.yml'
