@@ -22,19 +22,24 @@ A GitHub Action that automatically checks required Solana versions from network 
 
 ## ⚙️ Inputs
 
-| Input | Description | Required | Default |
-|-------|-------------|-----|---|
-| `yaml-path` | Path to Agave deployment YAML | Yes | - |
-| `network` | Target network (mainnet, testnet, devnet) | Yes | - |
-| `python-version` | Python version for action runtime | No  | 3.11 |
+| Input | Description | Required | Default         |
+|-------|-------------|-----|-----------------|
+| `yaml-path` | Path to Agave deployment YAML | Yes | -               |
+| `network` | Target network (mainnet, testnet, devnet) | Yes | -               |
+| `python-version` | Python version for action runtime | No  | 3.11            |
+| `rpc-url` | Custom Solana RPC URL | No  | Network default |
+| `current-epoch` | Current epoch for version selection | No  | Auto-detect     |
+| `delegate-requirements-url` | Custom URL for delegation criteria | No  | solana.org/delegation-criteria |
+
 
 ## 📊 Outputs
 
-| Name              | Description |
-|-------------------|-------------|
-| `min-version`     | New required Solana version |
-| `current-version` | Current deployed version |
-| `should-update`   | Boolean indicating if update needed |
+| Name              | Description                            |
+|-------------------|----------------------------------------|
+| `min-version`     | New required Solana version            |
+| `current-version` | Current deployed version               |
+| `should-update`   | Boolean indicating if update needed    |
+| `current-epoch`   | Current epoch for the selected network |
 
 ## 📋 Example Workflow
 
@@ -79,8 +84,9 @@ jobs:
             ## Version Update Required
              
             The minimum required Solana Agave version on ${{ env.network }} has changed:
-            - Current version: `${{ steps.version-check.outputs.current-version }}`
-            - Required version: `${{ steps.version-check.outputs.min-version }}`
+              - Current version: `${{ steps.version-check.outputs.current-version }}`
+              - Required version: `${{ steps.version-check.outputs.min-version }}`
+              - Current epoch: `${{ steps.version-check.outputs.current-epoch }}`
 
             ### 📝 Changes
             - Updates Agave deployment to meet new baseline requirements
@@ -102,6 +108,16 @@ jobs:
 ## PR Creation
 ![pr-created](./screenshots/pr-created.png)
 
+## 🔢 Epoch-Aware Version Selection
+
+The action now intelligently selects the appropriate Agave version based on the current epoch:
+1.	Automatically retrieves the current epoch from the network's RPC endpoint
+2.	Parses the version requirements table from the delegation criteria page
+3.	Determines the minimum required version for the current epoch
+4.	Updates your deployment file only if necessary
+This ensures your validator always runs the correct version for the current epoch, following Solana's version requirements schedule.
+
+
 ## 🔄 Network Support
 
 Configure the action for different Solana networks:
@@ -112,18 +128,21 @@ Configure the action for different Solana networks:
   with:
     yaml-path: gitops/mainnet/agave.yml
     network: mainnet
+    rpc-url: https://api.solana.com
 
 # Testnet
 - uses: solforge-labs/solana-agave-version-updater@v1
   with:
     yaml-path: gitops/testnet/agave.yml
     network: testnet
+    rpc-url: https://api.testnet.solana.com
 
 # Devnet
 - uses: solforge-labs/solana-agave-version-updater@v1
   with:
     yaml-path: gitops/devnet/agave.yml
     network: devnet
+    rpc-url: https://api.devnet.solana.com
 ```
 
 ## 💡 Best Practices
@@ -133,6 +152,7 @@ Configure the action for different Solana networks:
 3. **Network Selection**: Use separate workflows for different networks to maintain clear versioning
 4. **Monitoring**: Enable GitHub notifications for created PRs to stay informed
 5. **Version Verification**: Cross-reference versions with official Solana announcements
+6. **Epoch Tracking**: Monitor epoch transitions to ensure timely version updates
 
 ## 🤝 Contributing
 
